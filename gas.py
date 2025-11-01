@@ -18,16 +18,15 @@ WINDOW_SIZE = 1000
 KE_STOP_THRESHOLD = 0.001 
 
 # --- NEW CONSTANT FOR VISUAL SPEED ---
-UPDATES_PER_FRAME = 120 # Run 20 physics steps for every 1 screen redraw
-DT_COOLING = 0.01 # Fixed physical time step used during cooling mode
-# ------------------------------------
+UPDATES_PER_FRAME = 120 
+DT_COOLING = 0.01 
 
 # --- GLOBAL DYNAMIC VARIABLES ---
 SPEEDS_HISTORY = [] 
 MAX_SPEED_GLOBAL = 3.0 
 T_INITIAL_FIXED = 0.0
 SIMULATION_ACTIVE = True 
-COOLING_STEPS_REMAINING = 0 # Must be global for the update function
+COOLING_STEPS_REMAINING = 0 
 # ------------------------------------
 
 # --- Maxwell-Boltzmann Function (2D) ---
@@ -192,9 +191,10 @@ def recalculate_events(p_index):
 for i in range(N):
     recalculate_events(i)
 
-# --- Initialize Fixed Initial Temperature ---
+# --- Calculate Fixed Initial Temperature ---
 initial_ke_total = sum(0.5 * p.mass * (p.velocityx**2 + p.velocityy**2) for p in particles)
 T_INITIAL_FIXED = initial_ke_total / N 
+KE_Y_LIMIT = initial_ke_total * 1.1 # Calculate the fixed KE Y-limit
 # ------------------------------------------
 
 # --- NEW: Button Callback Function ---
@@ -206,7 +206,7 @@ def set_restitution(event):
     SIMULATION_ACTIVE = True
     
     # Set the total number of physics steps for the cooling period
-    COOLING_STEPS_REMAINING = 5000 * UPDATES_PER_FRAME # Ensure the total number of DT_COOLING steps is high
+    COOLING_STEPS_REMAINING = 5000 * PHYSICS_STEPS_PER_FRAME
     
     print(f"\n--- COEFFICIENT OF RESTITUTION changed to {COEFFICIENT_OF_RESTITUTION} (Inelastic) ---")
     print(f"--- Entering HYBRID fixed-step mode for {COOLING_STEPS_REMAINING} total steps ---")
@@ -248,20 +248,15 @@ points = [
 ]
 energy_text = ax1.text(0.02, 0.95, '', transform=ax1.transAxes, fontsize=10, color="black")
 
-# Subplot 2: Kinetic Energy Plot
+# Subplot 2: Kinetic Energy Plot (FIXED Y-AXIS APPLIED)
 time_data = [0.0]
 ke_data = [initial_ke_total]
 line, = ax2.plot(time_data, ke_data, 'b-')
-
-# --- NEW: Calculate and set the fixed Y-axis limit ---
-# The limit is 1.1 times the initial total kinetic energy.
-KE_Y_LIMIT = initial_ke_total * 1.1
-
-ax2.set_ylim(0, KE_Y_LIMIT)
 ax2.grid(True)
 ax2.set_title("Total Kinetic Energy Over Time")
 ax2.set_xlabel("Time (s)")
 ax2.set_ylabel("Total Kinetic Energy")
+ax2.set_ylim(0, KE_Y_LIMIT) # <-- FIXED Y-LIMIT
 
 # --- NEW SUBPLOT: Velocity Histogram (Frequency PDF) ---
 initial_speeds = [p.get_speed() for p in particles]
@@ -309,7 +304,7 @@ fig.canvas.mpl_connect('resize_event', on_resize)
 
 # --- EDMD Update Function ---
 def update(frame):
-    global GLOBAL_TIME, time_data, ke_data, MAX_SPEED_GLOBAL, SPEEDS_HISTORY, SIMULATION_ACTIVE, COOLING_STEPS_REMAINING, DT_COOLING, UPDATES_PER_FRAME
+    global GLOBAL_TIME, time_data, ke_data, MAX_SPEED_GLOBAL, SPEEDS_HISTORY, SIMULATION_ACTIVE, COOLING_STEPS_REMAINING, DT_COOLING, PHYSICS_STEPS_PER_FRAME
     
     if not SIMULATION_ACTIVE:
         return points + [energy_text, line] + list(hist_bars) + [maxwell_line]
@@ -322,7 +317,7 @@ def update(frame):
         total_dt_advanced = 0
         
         # Run physics UPDATES_PER_FRAME times
-        for _ in range(UPDATES_PER_FRAME):
+        for _ in range(PHYSICS_STEPS_PER_FRAME):
             if COOLING_STEPS_REMAINING <= 0: break
             
             # Collision Check and Resolution (Fixed-step logic)
@@ -411,9 +406,8 @@ def update(frame):
     
     # Update KE plot
     line.set_data(time_data, ke_data)
-    # X-axis still needs to expand dynamically, but Y-axis is now fixed at KE_Y_LIMIT
     ax2.set_xlim(0, GLOBAL_TIME * 1.05 if GLOBAL_TIME > 1 else 1)
-    ax2.set_ylim(0, KE_Y_LIMIT) # <-- Use the fixed limit
+    ax2.set_ylim(0, KE_Y_LIMIT) # <-- FIXED Y-LIMIT
     
     # --- HISTOGRAM UPDATE ---
     
